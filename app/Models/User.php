@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\TalkRevision;
 use Creativeorange\Gravatar\Facades\Gravatar;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Scout\Searchable;
+use Staudenmeir\EloquentHasManyDeep\HasRelationships;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -19,6 +21,7 @@ class User extends Authenticatable implements FilamentUser
     use HasApiTokens;
     use Notifiable;
     use Searchable;
+    use HasRelationships;
 
     public const ADMIN_ROLE = 1;
 
@@ -105,6 +108,23 @@ class User extends Authenticatable implements FilamentUser
     public function talks()
     {
         return $this->hasMany(Talk::class, 'author_id');
+    }
+
+    public function talkRevisions()
+    {
+        return $this->hasManyThrough(
+            TalkRevision::class,
+            Talk::class,
+            'author_id',
+        );
+    }
+
+    public function submissions()
+    {
+        return $this->hasManyDeepFromRelations(
+            $this->talkRevisions(),
+            (new TalkRevision())->submissions(),
+        );
     }
 
     public function archivedTalks()

@@ -38,18 +38,13 @@ Vue.component(
 );
 
 Vue.component(
-    'main-header',
-    require('./components/MainHeader.vue').default
-);
-
-Vue.component(
-    'conference-calendar',
-    require('./components/ConferenceCalendar.vue').default
-);
-
-Vue.component(
     'cfp-fields',
     require('./components/CfpFields.vue').default
+);
+
+Vue.component(
+    'MenuToggle',
+    require('./components/MenuToggle.vue').default
 );
 
 Vue.component(
