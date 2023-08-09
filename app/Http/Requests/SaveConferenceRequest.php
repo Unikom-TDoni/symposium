@@ -6,6 +6,8 @@ use App\Casts\SpeakerPackage;
 use App\Rules\ValidAmountForCurrentLocale;
 use Cknow\Money\Money;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class SaveConferenceRequest extends FormRequest
 {
@@ -17,6 +19,7 @@ class SaveConferenceRequest extends FormRequest
     public function rules()
     {
         return [
+            'author_id' => ['required'],
             'title' => ['required'],
             'description' => ['required'],
             'url' => ['required', 'url'],
@@ -37,6 +40,8 @@ class SaveConferenceRequest extends FormRequest
                 'after:cfp_starts_at',
                 'before:starts_at',
             ],
+            'is_shared' => [Rule::excludeIf(Auth::user()->isAdmin())],
+            'is_approved' => [Rule::excludeIf(Auth::user()->isAdmin())],
             'location' => ['nullable'],
             'latitude' => ['nullable'],
             'longitude' => ['nullable'],
@@ -63,6 +68,13 @@ class SaveConferenceRequest extends FormRequest
         return data_get($this->withSpeakerPackage(), $key, $default);
     }
 
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'author_id' => auth()->user()->id,
+        ]);
+    }
+    
     private function withSpeakerPackage()
     {
         $speakerPackage = new SpeakerPackage(

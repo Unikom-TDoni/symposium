@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AcceptancesController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Api\ConferencesController as ApiConferencesController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BiosController;
@@ -18,7 +19,7 @@ use App\Http\Controllers\TalksController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [HomeController::class, 'show'])->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('what-is-this', function () {
     return view('what-is-this');
@@ -28,7 +29,7 @@ Route::get('speakers', [PublicProfileController::class, 'index'])->name('speaker
 Route::get('u/{profileSlug}', [PublicProfileController::class, 'show'])->name('speakers-public.show');
 Route::get('u/{profileSlug}/talks/{talkId}', [PublicProfileController::class, 'showTalk'])->name('speakers-public.talks.show');
 Route::get('u/{profileSlug}/bios/{bioId}', [PublicProfileController::class, 'showBio'])->name('speakers-public.bios.show');
-Route::get('u/{profileSlug}/email', [PublicProfileController::class, 'getEmail'])->name('speakers-public.email');
+Route::get('u/{profileSlug}/email', [PublicProfileController::class, 'showEmailForm'])->name('speakers-public.email');
 Route::post('u/{profileSlug}/email', [PublicProfileController::class, 'postEmail'])->name('speakers-public.email.send');
 
 /*
@@ -46,15 +47,15 @@ Route::middleware('auth')->group(function () {
     Route::get('account/delete', [AccountController::class, 'delete'])->name('account.delete');
     Route::post('account/delete', [AccountController::class, 'destroy'])->name('account.delete.confirm');
     Route::get('account/export', [AccountController::class, 'export'])->name('account.export');
-    Route::get('account/oauth-settings', [AccountController::class, 'oauthSettings'])->name('account.oauth-settings');
+    Route::get('account/oauth-settings', [AccountController::class, 'showOAuthSettings'])->name('account.oauth-settings');
 
     Route::delete('acceptances/{acceptance}', [AcceptancesController::class, 'destroy']);
 
     Route::delete('rejections/{rejection}', [RejectionController::class, 'destroy']);
 
     Route::post('submissions', [SubmissionsController::class, 'store']);
-    Route::delete('submissions/{submission}', [SubmissionsController::class, 'destroy']);
-    Route::put('submissions/{submission}', [SubmissionsController::class, 'update'])->name('submission.update');
+    Route::delete('submissions/{submission}', [SubmissionsController::class, 'destroy'])->can('updateOrDelete', 'submission');
+    Route::put('submissions/{submission}', [SubmissionsController::class, 'update'])->name('submission.update')->can('updateOrDelete', 'submission');
     Route::get('submissions/{submission}', [SubmissionsController::class, 'edit'])->name('submission.edit');
 
     Route::post('submissions/{submission}/reactions', [SubmissionReactionsController::class, 'store'])->name('submissions.reactions.store');
@@ -93,3 +94,6 @@ Route::middleware('social', 'guest')->group(function () {
     Route::get('login/{service}', [SocialLoginController::class, 'redirect']);
     Route::get('login/{service}/callback', [SocialLoginController::class, 'callback']);
 });
+
+Route::get('w/{id}', [ApiConferencesController::class, 'show']);
+Route::get('w', [ApiConferencesController::class, 'index']);

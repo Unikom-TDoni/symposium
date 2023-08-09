@@ -2,23 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Talk;
+use App\Repository\BiosRepository;
+use App\Repository\TalksRepository;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(BiosRepository $biosRepository, TalksRepository $talksRepository)
     {
-        $talks = auth()->user()->talks->sortByTitle();
-
-        $submissionsByConference = $talks->filter(function (Talk $talk) {
-            return $talk->submissions()->exists();
-        })->map(function ($talk) {
-            return $talk->submissions()->with('conference')->get();
-        })->flatten()->groupBy('conference_id');
-
+        $talks = $talksRepository->getSortedTalkByTitle();
         return view('dashboard', [
-            'bios' => auth()->user()->bios,
-            'submissionsByConference' => $submissionsByConference,
+            'bios' => $biosRepository->getUserBio(),
+            'submissionsByConference' => $talksRepository->getTalkSubmission($talks),
             'talks' => $talks,
         ]);
     }

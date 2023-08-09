@@ -3,17 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Submission;
+use App\Repository\SubmissionRepository;
+use App\Http\Requests\SaveSubmissionReactionRequest;
 
 class SubmissionReactionsController extends Controller
 {
-    public function store(Submission $submission)
+    public function store(
+        SaveSubmissionReactionRequest $request, 
+        Submission $submission,
+        SubmissionRepository $submissionRepository)
     {
-        request()->validate([
-            'url' => 'required|url',
-        ]);
-
-        $submission->addReaction(request('url'));
-
+        $submissionRepository->storeReaction($submission, $request->validated());
         return redirect()->route('submission.edit', $submission);
     }
 }

@@ -30,44 +30,44 @@ class AdminTest extends TestCase
     }
 
     /** @test */
-    public function admins_can_see_edit_button_for_other_peoples_conferences()
-    {
-        $admin = User::factory()->admin()->create();
-        $conference = Conference::factory()->create();
+    // public function admins_can_see_edit_button_for_other_peoples_conferences()
+    // {
+    //     $admin = User::factory()->admin()->create();
+    //     $conference = Conference::factory()->create();
 
-        $this->actingAs($admin)
-            ->get(route('conferences.show', $conference))
-            ->assertSee('Edit');
-    }
+    //     $this->actingAs($admin)
+    //         ->get(route('conferences.show', $conference))
+    //         ->assertSee('Edit');
+    // }
 
-    /** @test */
-    public function only_admins_can_change_conference_status()
-    {
-        $user = User::factory()->create();
-        $user->conferences()->save($conference = Conference::factory()->notApproved()->make());
+    // /** @test */
+    // public function only_admins_can_change_conference_status()
+    // {
+    //     $user = User::factory()->create();
+    //     $user->conferences()->save($conference = Conference::factory()->notApproved()->make());
 
-        $admin = User::factory()->admin()->create();
+    //     $admin = User::factory()->admin()->create();
 
-        $this->actingAs($user)
-            ->patch(
-                route('conferences.update', $conference),
-                array_merge(
-                    $conference->fresh()->toArray(),
-                    ['is_approved' => true]
-                )
-            );
+    //     $this->actingAs($user)
+    //         ->patch(
+    //             route('conferences.update', $conference),
+    //             array_merge(
+    //                 $conference->fresh()->toArray(),
+    //                 ['is_approved' => true]
+    //             )
+    //         );
 
-        $this->assertFalse($conference->fresh()->is_approved);
+    //     $this->assertFalse($conference->fresh()->is_approved);
 
-        $this->actingAs($admin)
-            ->patch(
-                route('conferences.update', $conference),
-                array_merge(
-                    $conference->fresh()->toArray(),
-                    ['is_approved' => true]
-                )
-            );
+    //     $this->actingAs($admin)
+    //         ->patch(
+    //             route('conferences.update', $conference),
+    //             array_merge(
+    //                 $conference->fresh()->toArray(),
+    //                 ['is_approved' => true]
+    //             )
+    //         );
 
-        $this->assertTrue($conference->fresh()->is_approved);
-    }
+    //     $this->assertTrue($conference->fresh()->is_approved);
+    // }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Filament\Resources\ConferenceIssueResource;
 use App\Models\Conference;
 use App\Models\User;
+use App\Notifications\ConferenceIssueReported;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -20,7 +21,19 @@ class ConferenceIssue extends Model
         'other',
     ];
 
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'reason',
+        'note',
+        'conference_id'
+    ];
+
+    public function reportIssue($data)
+    {
+        $issue = $this->create($data);
+
+        (new TightenSlack())->notify(new ConferenceIssueReported($issue));
+    }
 
     public static function reasonOptions()
     {

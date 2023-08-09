@@ -3,19 +3,18 @@
 namespace App\Policies;
 
 use App\Models\Conference;
-use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class ConferencePolicy
 {
     use HandlesAuthorization;
 
-    public function edit(User $user, Conference $conference)
+    public function edita(Conference $conference)
     {
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return $conference->author_id == $user->id;
+        return $conference->author_id !== Auth::id() && !Auth::user()->isAdmin() 
+            ? Response::deny('User ' . Auth::id() . " tried to edit a conference they don't own.")
+            : Response::allow();
     }
 }

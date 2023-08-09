@@ -2,110 +2,71 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\SpeakerSearchRequest;
 use App\Mail\ContactRequest;
-use App\Models\User;
-use Captcha\Captcha;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Session;
+use App\Http\Requests\SendEmailRequest;
+use App\Http\Requests\SpeakerSearchRequest;
+use App\Repository\UserPublicProfileRepository;
 
 class PublicProfileController extends Controller
 {
-    public function index(SpeakerSearchRequest $request)
-    {
-        $users = User::searchPublicSpeakers($request->query('query'))
-            ->orderBy('name', 'asc')
-            ->get();
+    private $userPublicProfileRepository;
 
+    public function __construct(UserPublicProfileRepository $publicProfileRepository)
+    {
+        $this->userPublicProfileRepository = $publicProfileRepository;
+    }
+
+    public function index(SpeakerSearchRequest $request) 
+    {
         return view('account.public-profile.index', [
-            'speakers' => $users,
+            'speakers' => $this->userPublicProfileRepository->getPublicSpeakerOrderByName($request->query('query')),
             'query' => $request->original,
         ]);
     }
 
-    public function show($profile_slug)
+    public function show($profileSlug)
     {
-        $user = $this->getPublicUserByProfileSlug($profile_slug);
-        $talks = $user->talks()->public()->get()->sortByTitle();
-        $bios = $user->bios()->public()->get();
-
+        $user = $this->userPublicProfileRepository->findPublicUserByProfileSlug($profileSlug);
         return view('account.public-profile.show', [
             'user' => $user,
-            'talks' => $talks,
-            'bios' => $bios,
+            'talks' => $this->userPublicProfileRepository->getOrderedUserPublicTalks($user),
+            'bios' => $this->userPublicProfileRepository->getUserPublicBio($user),
         ]);
     }
 
-    public function showTalk($profile_slug, $talk_id)
+    public function showTalk($profileSlug, $talkId)
     {
-        $user = $this->getPublicUserByProfileSlug($profile_slug);
-
-        $talk = $user->talks()->public()->findOrFail($talk_id);
-
+        $user = $this->userPublicProfileRepository->findPublicUserByProfileSlug($profileSlug);
         return view('talks.show-public', [
             'user' => $user,
-            'talk' => $talk,
+            'talk' => $this->userPublicProfileRepository->findUserPublicTalk($user, $talkId),
         ]);
     }
 
-    public function showBio($profile_slug, $bio_id)
+    public function showBio($profileSlug, $bioId)
     {
-        $user = $this->getPublicUserByProfileSlug($profile_slug);
-
-        $bio = $user->bios()->public()->findOrFail($bio_id);
-
+        $user = $this->userPublicProfileRepository->findPublicUserByProfileSlug($profileSlug);
         return view('bios.show-public', [
             'user' => $user,
-            'bio' => $bio,
+            'bio' => $this->userPublicProfileRepository->findUserPublicBio($user, $bioId),
         ]);
     }
 
-    public function getEmail($profile_slug)
+    public function showEmailForm($profileSlug)
     {
-        $user = $this->getPublicUserByProfileSlug($profile_slug);
-
-        if (! $user->allow_profile_contact) {
-            abort(404);
-        }
-
+        $user = $this->userPublicProfileRepository->findPublicUserByProfileSlug($profileSlug);
         return view('account.public-profile.email', [
             'user' => $user,
         ]);
     }
 
-    public function postEmail($profile_slug, Captcha $captcha, Request $request)
+    public function postEmail(SendEmailRequest $request, $profileSlug)
     {
-        $user = $this->getPublicUserByProfileSlug($profile_slug);
-
-        if (! $user->allow_profile_contact) {
-            abort(404);
-        }
-
-        request()->validate([
-            'email' => 'required|email',
-            'name' => '',
-            'message' => 'required',
-        ]);
-
-        $captchaResponse = $captcha->check();
-        if (! $captchaResponse->isValid()) {
-            Log::info('Captcha error on public speaker profile page ' . $request->url() . '; reason: ' . $captchaResponse->getError());
-            exit('You have not passed the captcha. Please try again.');
-        }
-
-        Mail::to($user->email)->send(new ContactRequest($request->get('email'), $request->get('name'), $request->get('message')));
-
-        Session::flash('success-message', 'Message sent!');
-
-        return redirect()->route('speakers-public.show', $user->profile_slug);
-    }
-
-    private function getPublicUserByProfileSlug($profile_slug)
-    {
-        return User::where('profile_slug', $profile_slug)
-            ->where('enable_profile', true)
-            ->firstOrFail();
+        $user = $this->userPublicProfileRepository->findPublicUserByProfileSlug($profileSlug);
+        $validatedData = $request->validated();
+        Mail::to($user->email)->send(new ContactRequest($validatedData['email'], $validatedData['name'], $validatedData['message']));
+        return redirect()->route('speakers-public.show', $user->profile_slug)
+            ->with('success-message', 'Message sent!');
     }
 }

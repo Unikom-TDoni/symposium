@@ -2,209 +2,117 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\SaveConferenceRequest;
-use App\Models\Conference;
 use App\Services\Currency;
-use App\Transformers\TalkForConferenceTransformer as TalkTransformer;
 use Illuminate\Http\Request;
+use App\Repository\TalksRepository;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Session;
+use App\Repository\ConferenceRepository;
+use App\Factory\ConferenceFilterFactory;
+use App\Http\Requests\SaveConferenceRequest;
 
 class ConferencesController extends Controller
 {
-    public function index(Request $request)
+    private $conferenceRepository;
+
+    public function __construct(ConferenceRepository $conferenceRepository)
     {
-        switch ($request->input('filter')) {
-            case 'favorites':
-                $query = auth()->user()->favoritedConferences()->approved();
-                break;
-            case 'dismissed':
-                $query = auth()->user()->dismissedConferences()->approved();
-                break;
-            case 'open_cfp':
-                $query = Conference::undismissed()->openCfp()->approved();
-                break;
-            case 'unclosed_cfp':
-                $query = Conference::undismissed()->unclosedCfp()->approved();
-                break;
-            case 'all':
-                $query = Conference::undismissed()->approved();
-                break;
-            case 'future':
-                // Pass through
-            default:
-                $query = Conference::undismissed()->future()->approved();
-        }
+        $this->conferenceRepository = $conferenceRepository;
+    }
 
-        switch ($request->input('sort')) {
-            case 'alpha':
-                $query->orderBy('title');
-                break;
-            case 'date':
-                $query->orderBy('starts_at');
-                break;
-            case 'opening_next':
-                $query->orderByRaw('cfp_ends_at IS NULL, cfp_ends_at ASC');
-                break;
-            case 'closing_next':
-                // pass through
-            default:
-                $query->orderByRaw('cfp_ends_at IS NULL, cfp_ends_at ASC');
-                break;
-        }
-
+    public function index(Request $request, ConferenceFilterFactory $conferenceFilterFactory)
+    {
+        $conferenceFilter = $conferenceFilterFactory->getFilter($request->input('filter'));
+        $sortedConference = $this->conferenceRepository->sort($conferenceFilter->filter(), $request->input('sort'));
         return view('conferences.index', [
-            'conferences' => $query->paginate(10)->withQueryString(),
+            'conferences' => $sortedConference->paginate(10)->withQueryString(),
         ]);
     }
 
     public function create()
     {
         return view('conferences.create', [
-            'conference' => new Conference(),
+            'conference' => $this->conferenceRepository->getModel(),
             'currencies' => Currency::all(),
         ]);
     }
 
     public function store(SaveConferenceRequest $request)
     {
-        $conference = Conference::create(array_merge($request->validated(), [
-            'author_id' => auth()->user()->id,
-        ]));
-
-        Event::dispatch('new-conference', [$conference]);
-        Session::flash('success-message', 'Successfully created new conference.');
-
-        return redirect('conferences/' . $conference->id);
+        $createdConference = $this->conferenceRepository->create($request->validated());
+        Event::dispatch('new-conference', [$createdConference]);
+        return redirect()->route('conferences.show', $createdConference->id)
+            ->with('success-message', 'Successfully created new conference.');
     }
 
-    public function show($id)
+    public function show($id, TalksRepository $talksRepository)
     {
-        if (auth()->guest()) {
-            return $this->showPublic($id);
-        }
-
-        try {
-            if (auth()->user()->isAdmin()) {
-                $conference = Conference::withoutGlobalScope('notRejected')->findOrFail($id);
-            } else {
-                $conference = Conference::findOrFail($id);
-            }
-        } catch (Exception $e) {
-            return redirect('/');
-        }
-
-        $talks = auth()->user()->talks->sortByTitle()->map(function ($talk) use ($conference) {
-            return TalkTransformer::transform($talk, $conference);
-        });
-
+        $conference = $this->conferenceRepository->findByAuthUserRole($id);
+        if (auth()->guest()) return $this->showPublic($conference);
         return view('conferences.show', [
             'conference' => $conference,
-            'talks' => $talks,
+            'talks' => $talksRepository->getTalkForConference($conference),
+        ]);
+    }
+
+    private function showPublic($conference)
+    {
+        return view('conferences.showPublic', [
+            'conference' => $conference,
         ]);
     }
 
     public function edit($id)
     {
-        $conference = Conference::findOrFail($id);
-
-        if ($conference->author_id !== auth()->id() && ! auth()->user()->isAdmin()) {
-            Log::error('User ' . auth()->user()->id . " tried to edit a conference they don't own.");
-
-            return redirect('/');
-        }
-
+        $conference = $this->conferenceRepository->getById($id);
+        $this->authorize('edit', $conference);
         return view('conferences.edit', [
             'conference' => $conference,
             'currencies' => Currency::all(),
         ]);
     }
 
-    public function update($id, SaveConferenceRequest $request)
+    public function update(SaveConferenceRequest $request, $id)
     {
-        // @todo Update this to use ACL... gosh this app is old...
-        $conference = Conference::findOrFail($id);
-
-        if ($conference->author_id !== auth()->id() && ! auth()->user()->isAdmin()) {
-            Log::error('User ' . auth()->user()->id . " tried to edit a conference they don't own.");
-
-            return redirect('/');
-        }
-
-        $conference->fill($request->validated());
-
-        if (auth()->user()->isAdmin()) {
-            $conference->is_shared = $request->input('is_shared');
-            $conference->is_approved = $request->input('is_approved');
-        }
-
-        $conference->save();
-
-        Session::flash('success-message', 'Successfully edited conference.');
-
-        return redirect('conferences/' . $conference->id);
+        $this->conferenceRepository->update($id, $request->validated());
+        return redirect()->route('conferences.show', $id)
+            ->with('success-message', 'Successfully edited conference.');
     }
 
     public function destroy($id)
     {
-        try {
-            $conference = auth()->user()->conferences()->findOrFail($id);
-        } catch (Exception $e) {
-            Log::error('User ' . auth()->user()->id . " tried to delete a conference that doesn't exist or they don't own.");
-
-            return redirect('/');
-        }
-
-        $conference->delete();
-
-        Session::flash('success-message', 'Conference successfully deleted.');
-
-        return redirect('conferences');
+        $this->conferenceRepository->deleteUserConference($id);
+        return redirect()->route('conferences.index')
+            ->with('success-message', 'Conference successfully deleted.');
     }
 
-    public function dismiss($conferenceId)
+    public function dismiss($id)
     {
-        if (Conference::findOrFail($conferenceId)->isFavorited()) {
+        if ($this->conferenceRepository->isSelectedConferencesFavorited($id))
             return redirect()->back();
-        }
 
-        auth()->user()->dismissedConferences()->attach($conferenceId);
-
-        return redirect()->back();
-    }
-
-    public function undismiss($conferenceId)
-    {
-        auth()->user()->dismissedConferences()->detach($conferenceId);
+        $this->conferenceRepository->attachUserDismissedConference($id);
 
         return redirect()->back();
     }
 
-    public function favorite($conferenceId)
+    public function undismiss($id)
     {
-        if (Conference::findOrFail($conferenceId)->isDismissed()) {
+        $this->conferenceRepository->detachUserDismissedConference($id);
+        return redirect()->back();
+    }
+
+    public function favorite($id)
+    {
+        if ($this->conferenceRepository->isSelectedConferencesDissmised($id))
             return redirect()->back();
-        }
 
-        auth()->user()->favoritedConferences()->attach($conferenceId);
-
+        $this->conferenceRepository->attachUserFavoriteConference($id);
         return redirect()->back();
     }
 
-    public function unfavorite($conferenceId)
+    public function unfavorite($id)
     {
-        auth()->user()->favoritedConferences()->detach($conferenceId);
-
+        $this->conferenceRepository->detachUserFavoriteConference($id);
         return redirect()->back();
-    }
-
-    private function showPublic($id)
-    {
-        $conference = Conference::approved()->findOrFail($id);
-
-        return view('conferences.showPublic', [
-            'conference' => $conference,
-        ]);
     }
 }

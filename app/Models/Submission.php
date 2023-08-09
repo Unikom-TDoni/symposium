@@ -114,9 +114,7 @@ class Submission extends UuidBase
 
     public function addReaction($url)
     {
-        $this->reactions()->create([
-            'url' => $url,
-        ]);
+        $this->reactions()->create($url);
     }
 
     public function author()

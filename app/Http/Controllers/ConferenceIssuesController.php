@@ -3,36 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conference;
-use App\Models\ConferenceIssue;
-use Illuminate\Validation\Rule;
+use App\Repository\ConferenceIssueRepository;
+use App\Http\Requests\SaveConferenceIssueRequest;
 
 class ConferenceIssuesController extends Controller
 {
+    private $conferenceIssueRepository;
+
+    public function __construct(ConferenceIssueRepository $conferenceIssueRepository)
+    {
+        $this->conferenceIssueRepository = $conferenceIssueRepository;
+    }
+
     public function create(Conference $conference)
     {
         return view('conferences.issues.create', [
             'conference' => $conference,
-            'reasonOptions' => ConferenceIssue::reasonOptions(),
+            'reasonOptions' => $this->conferenceIssueRepository->getReasonOptions(),
         ]);
     }
 
-    public function store(Conference $conference)
+    public function store(SaveConferenceIssueRequest $request, $id)
     {
-        request()->validate([
-            'reason' => [
-                'required',
-                Rule::in(ConferenceIssue::REASONS),
-            ],
-            'note' => 'required',
-        ]);
-
-        $conference->reportIssue(
-            request('reason'),
-            request('note'),
-            auth()->user(),
-        );
-
-        return redirect()->route('conferences.show', $conference)
+        $this->conferenceIssueRepository->store($request->validated(), $id);
+        return redirect()->route('conferences.show', $id)
             ->with(['success-message' => 'Thank you for reporting this issue!']);
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Scout\Searchable;
@@ -27,7 +28,23 @@ class User extends Authenticatable implements FilamentUser
 
     protected $hidden = ['password', 'remember_token'];
 
-    protected $fillable = ['email', 'password', 'name'];
+    protected $fillable = [
+        'name',
+        'email', 
+        'password', 
+        'city',
+        'state',
+        'country',
+        'password',
+        'location',
+        'sublocality',
+        'profile_slug',
+        'neighborhood',
+        'profile_intro',
+        'enable_profile',
+        'wants_notifications',
+        'allow_profile_contact',
+    ];
 
     public static function searchPublicSpeakers($query)
     {

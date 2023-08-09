@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Conference;
-use App\Models\User;
+use App\Repository\UserRepository;
+use App\Repository\ConferenceRepository;
 
 class HomeController extends Controller
 {
-    public function show()
+    public function index(UserRepository $userRepository, ConferenceRepository $conferenceRepository)
     {
         return view('home', [
-            'speakers' => User::whereFeatured()->limit(6)->get(),
-            'conferences' => Conference::whereFeatured()->limit(3)->get(),
+            'speakers' => $userRepository->getFeaturedUser(6),
+            'conferences' => $conferenceRepository->getFeaturedConferences(3),
         ]);
     }
 }

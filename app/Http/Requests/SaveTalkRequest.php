@@ -14,6 +14,7 @@ class SaveTalkRequest extends FormRequest
     public function rules()
     {
         return [
+            'author_id' => 'required',
             'title' => 'required',
             'type' => 'required',
             'level' => 'required',
@@ -30,5 +31,12 @@ class SaveTalkRequest extends FormRequest
         return [
             'slides.url' => 'Slides URL must contain a valid URL',
         ];
+    }
+
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'author_id' => auth()->user()->id,
+        ]);
     }
 }

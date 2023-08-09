@@ -10,6 +10,16 @@ class TalkRevision extends UuidBase
 
     public static $rules = [];
 
+    protected $fillable = [
+        'title',
+        'type',
+        'level',
+        'length',
+        'slides',
+        'organizer_notes',
+        'description',
+    ];
+
     protected $title;
 
     protected $type;

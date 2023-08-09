@@ -2,28 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Repository\ConferenceRepository;
 use App\Http\Resources\CalendarEventCollection;
-use App\Models\Conference;
-use Carbon\Carbon;
 
 class CalendarController extends Controller
 {
-    public function index()
+    public function index(ConferenceRepository $conferenceRepository)
     {
         return view('calendar', [
             'events' => CalendarEventCollection::make([])
-                ->addConferences($this->query()->whereHasDates()->get())
-                ->addCfpOpenings($this->query()->whereHasCfpStart()->get())
-                ->addCfpClosings($this->query()->whereHasCfpEnd()->get())
+                ->addConferences($conferenceRepository->getCalendarConference())
+                ->addCfpOpenings($conferenceRepository->getCalendarCfpOpeningConference())
+                ->addCfpClosings($conferenceRepository->getCalendarCfpClosingConference())
                 ->toJson(),
         ]);
-    }
-
-    private function query()
-    {
-        return Conference::query()
-            ->approved()
-            ->undismissed()
-            ->whereAfter(Carbon::now()->subYear());
     }
 }

@@ -12,13 +12,6 @@ class SpeakerSearchRequest extends FormRequest
         return true;
     }
 
-    public function rules()
-    {
-        return [
-            //
-        ];
-    }
-
     public function prepareForValidation()
     {
         optional(State::abbreviation($this->query('query')), function ($value) {

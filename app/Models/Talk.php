@@ -18,6 +18,11 @@ class Talk extends UuidBase
         'id',
     ];
 
+    protected $fillable = [
+        'public',
+        'author_id',
+    ];
+
     protected $casts = [
         'public' => 'boolean',
         'is_archived' => 'boolean',

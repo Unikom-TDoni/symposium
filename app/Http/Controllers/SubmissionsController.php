@@ -2,25 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Conference;
 use App\Models\Submission;
-use App\Models\Talk;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\Rule;
+use App\Repository\TalksRepository;
+use App\Repository\ConferenceRepository;
+use App\Repository\SubmissionRepository;
+use App\Http\Requests\UpdateSubmissionRequest;
 
 class SubmissionsController extends Controller
 {
-    public function store(Request $request)
+    private $submissionRepository;
+    
+    public function __construct(SubmissionRepository $submissionRepository)
     {
-        $talk = Talk::findOrFail($request->input('talkId'));
-        if (auth()->user()->id != $talk->author_id) {
-            return response('', 401);
-        }
+        $this->submissionRepository = $submissionRepository;
+    }
 
-        $conference = Conference::findOrFail($request->input('conferenceId'));
-        $talkRevision = $talk->current();
-        $submission = $conference->submissions()->create(['talk_revision_id' => $talkRevision->id]);
+    public function store(Request $request, 
+        TalksRepository $talkRepository, 
+        ConferenceRepository $conferenceRepository)
+    {
+        $this->authorize('store', [Submission::class, $talkRepository->getById($request->input('talkId'))]);
+
+        $submission = $this->submissionRepository->store(
+            $conferenceRepository->getById($request->input('conferenceId')), 
+            $talkRepository->getTalkRevisionById($request->input('talkId'))
+        );
 
         return response()->json([
             'status' => 'success',
@@ -31,49 +38,23 @@ class SubmissionsController extends Controller
 
     public function edit(Submission $submission)
     {
-        $submission->load([
-            'acceptance',
-            'rejection',
-            'reactions',
-        ]);
-
+        $this->submissionRepository->loadRelation($submission);
         return view('submissions.edit', [
             'submission' => $submission,
             'conference' => $submission->conference,
         ]);
     }
 
-    public function update(Submission $submission, Request $request)
+    public function update(Submission $submission, UpdateSubmissionRequest $request)
     {
-        if (auth()->user()->id != $submission->talkRevision->talk->author_id) {
-            return response('', 401);
-        }
-
-        request()->validate([
-            'response' => [
-                'required',
-                Rule::in(array_keys(Submission::RESPONSES)),
-            ],
-            'reason' => 'nullable|max:255',
-        ]);
-
-        $response = $submission->firstOrCreateResponse($request->input('response'));
-
-        $response->reason = $request->input('reason');
-        $response->save();
-
-        Session::flash('success-message', 'Successfully updated submission.');
-
-        return redirect()->route('talks.show', $submission->talkRevision->talk);
+        $this->submissionRepository->update($submission, $request->validated());
+        return redirect()->route('talks.show', $this->submissionRepository->getSubmissionTalk($submission))
+            ->with('success-message', 'Successfully updated submission.');
     }
 
     public function destroy(Submission $submission)
     {
-        if (auth()->user()->id != $submission->talkRevision->talk->author_id) {
-            return response('', 401);
-        }
-        $submission->delete();
-
+        $this->submissionRepository->delete($submission);
         return response()->json(['status' => 'success', 'message' => 'Talk Un-Submitted']);
     }
 }
